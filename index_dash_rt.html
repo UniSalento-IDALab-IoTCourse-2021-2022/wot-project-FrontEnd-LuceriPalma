@@ -1,0 +1,1800 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+ <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta http-equiv="X-UA-Compatible" content="ie=edge" />
+  <title>Thingy:52 Web Bluetooth GPS and sensor recorder for IoT project</title>
+   <link rel="icon" type="image/x-icon" href="favicon.png">
+  <link rel="stylesheet" href="style.css">
+</head>
+
+<body>
+<body onload="startup();">
+
+<!-- <h3>Proof of concept</h3> -->
+ <header>
+      <!--  <a href="#" class="logo"></a> -->
+        <nav>
+            <ul class="menu">
+                <li><a href="./index.html">home</a></li>
+              <!-- <li><a href="./index_track.html">Track</a></li> -->
+              <!-- <li><a href="./index_map_demo.html">Fake Data Map</a></li> -->
+				<!-- <li><a href="./index_map.html">DB Map</a></li> -->
+                <!-- <li><a href="https://iot-t52.duckdns.org/iot/proxy/proxy.php?url=http://localhost:3000/points&mode=native">DB Link</a></li> -->
+				<!-- <li><a href="./index_map_rt.html">Real time MAP</a></li> -->
+				<li><a href="./index_dash_rt.html">Dashboard</a></li>
+        <li><a href="./index_map_data.html">Map for maintenance</a></li>
+				<li><a href="./credits.html">Credits</a></li>
+            </ul>
+        </nav>
+</header>
+</div>
+<br>
+<br>
+<br>
+<br>
+<br>
+<br>
+<br>
+<br>
+<br>
+<br>
+
+<div style="padding:10px;background-color:#eee;display:none;" >
+      <button id="connectBtn">Connect</button>
+      <button id="gpsBtn">Connect</button>
+      <button id="disconnectBtn">Disconnect</button>
+      <button id="changeLED">changeLED random</button>
+      <button id="changeLEDYellow">Yellow</button>
+      <button id="changeLEDRed">Red</button>
+      <button id="changeLEDGreen">Green</button>
+      <button id="changeLEDBlue">Blue</button>
+      <button id="changeLEDPurple">Purple</button>
+      <button id="OffPressed">OffPressed</button>
+      <button id="MakeSound">Make Sound</button>
+      <!-- <div id="microphone"></div> -->
+    </div>
+<script src="./GeoJSON.js/geojson.min.js"></script>
+
+<script>
+
+
+    var timedPost;
+    var checkPot;
+    var PotBurst;
+    // var RestApiUrl;
+    var DbBaseUrl;
+    var NodeBaseUrl;
+
+    function isLocalHost(url) {
+      return url.indexOf('localhost') !== -1 || url.indexOf('127.0.0.1') !== -1;
+    }
+
+    if (isLocalHost(window.location.href)) {
+      DbBaseUrl = 'http://localhost:3000/';
+      NodeBaseUrl = 'http://localhost:3002/';
+    } else {
+      DbBaseUrl = 'https://iot-t52.duckdns.org:3000/';
+      NodeBaseUrl = 'https://iot-t52.duckdns.org:3002/';
+    }
+    // console.log(isLocalHost(window.location.href));
+    </script>
+<script type="module">
+
+    // variabili di configurazione
+    // valore di soglia per la componente y dell'accellerazione
+    // se superata.. indica una anomalia della strada
+    // valore impostabile da utente tramite dashboard
+
+
+    var thingyName = document.getElementById("thingyName");
+    var thingyBattery = document.getElementById("thingyBattery");
+    var thingyTemp = document.getElementById("thingyTemp");
+    var thingyGVector = document.getElementById("thingyGVector");
+    var thingyHumidity = document.getElementById("thingyHumidity");
+    var thingyPressure= document.getElementById("thingyPressure");
+    var thingyRed= document.getElementById("thingyRed");
+    var thingyGreen= document.getElementById("thingyGreen");
+    var thingyBlue= document.getElementById("thingyBlue");
+    var thingyGas= document.getElementById("thingyGas");
+    //var thingyColor = document.getElementById("thingyColor");
+    var thingyHeading= document.getElementById("heading");
+    var thingyRawdata= document.getElementById("thingyRawdata");
+    var thingyGyroX = document.getElementById("thingyGyroX");
+    var thingyGyroY = document.getElementById("thingyGyroY");
+    var thingyGyroZ = document.getElementById("thingyGyroZ");
+    var thingyAccX = document.getElementById("thingyAccX");
+    var thingyAccY = document.getElementById("thingyAccY");
+    var thingyAccZ = document.getElementById("thingyAccZ");
+
+
+    import Thingy from "./index_nordic.js";
+    const thingy = new Thingy({logEnabled: true});
+
+
+
+    const myLoggerTemperature = data => {
+      const tempData = data.detail;
+      //console.log(tempData);
+      var Tnewvalue = Math.round((tempData.value + Number.EPSILON) * 10) / 10;
+      thingyTemp.innerHTML = Tnewvalue;
+      //console.log("impostare" + tempData.value);
+      TD.update({temperature:Tnewvalue});
+
+    }
+
+
+    var rif_y = 0;
+    //CHANGE THRESHOLD
+    var tval = document.getElementsByClassName("td_val_a")[1].innerHTML;
+
+    // console.log(tval);
+    var threshold_y = tval;
+    // console.log(threshold_y);
+    //console.log("ciao sono la soglia: " + tval);
+
+    const myLoggerGravity = data => {
+      const tempData = data.detail;
+      //console.log(tempData);
+      var tval = document.getElementsByClassName("td_val_a")[0].innerHTML;
+      // console.log(tval);
+      var threshold_y = parseFloat(tval);
+      var threshold_yn = Math.round((threshold_y + Number.EPSILON) * 100) / 100;
+      //var threshold_y = tval;
+      // console.log(threshold_yn);
+      if (isNaN(threshold_yn)) {
+      }
+      var GVectorY = parseFloat(tempData.value.y);
+      var GVectorYn = Math.round((GVectorY + Number.EPSILON) * 100) / 100;
+      // console.log(GVectorYn);
+      if (isNaN(GVectorYn)) {
+        console.log("GVectorYn is not a number");
+      }
+      var diffVector=GVectorYn - rif_y;
+
+
+      if (Math.abs(diffVector) > threshold_yn){
+        thingyGVector.innerHTML = tempData.value.x + "," + tempData.value.y + "," + tempData.value.z + "";
+        console.log("Y vale: " + Math.abs(diffVector) + " ed ha superato la soglia: " + threshold_yn);
+        //console.log(" Y );
+
+        // TODO: qui deve andare l-invio info per le buche
+        console.log("TODO: qui deve andare l-invio info per le buche");
+        //TD.update({log:"Y vale: " + tempData.value.y + " ed ha superato la soglia: " + tval});
+        TD.update({GVector:GVectorYn});
+        //var Ynewvalue = GVectorYn;
+        o.log.log("Y vale: " + Math.abs(diffVector) + " ed ha superato la soglia: " + threshold_yn);
+
+        // se Track Post e' attivo
+        var toggles = document.getElementsByClassName("td_toggle");
+        for (var i=0;i<toggles.length;i++) {
+          //console.log(toggles[i]);
+          if (toggles[i].querySelectorAll("span")[0].innerText == "PotFinder") {
+            //console.log(toggles[i]);
+            if (toggles[i].getAttribute('pressed') == 0) {
+              //console.log(toggles[i]);
+              console.log('unpressed 0 -> cancello invio buca;')
+              //clearInterval(timedPost);
+              if (PotBurst) {
+                clearPot();
+              }
+              //  TD.update({sendData: 0});
+            }
+            else if (toggles[i].getAttribute('pressed') == 1) {
+              //console.log(toggles[i]);
+              console.log('pressed 1 ->  invio buca;')
+              if (PotBurst) {
+                sendPot();
+              }
+              //timedPost=setInterval(sendPost,1000);
+              //TD.update({sendData: 1});
+            }
+          }
+        }
+
+
+
+        //sendPost();
+      }
+      rif_y = GVectorYn;
+    }
+
+    const myLoggerHumidity = data => {
+      const tempData = data.detail;
+      //console.log(tempData);
+      thingyHumidity.innerHTML = tempData.value + " %";
+      TD.update({HumiditySensor:tempData.value + " %"});
+    }
+
+    const myLoggerHeading = data => {
+      //console.log(data);
+      const tempData = data.detail;
+      //console.log(tempData);
+      var newHeadingvalue =  Math.round((tempData.heading + Number.EPSILON) * 100) / 100;
+      thingyHeading.innerHTML = newHeadingvalue;
+    }
+
+    const myLoggerPressure = data => {
+      const tempData = data.detail;
+      //console.log(tempData+ " " + tempData.unit);
+      thingyPressure.innerHTML = tempData.value+ " " + tempData.unit;
+      TD.update({PressureSensor:tempData.value + " " + tempData.unit});
+
+    }
+
+    const myLoggerColor = data => {
+      const tempData = data.detail;
+      // console.log(" colore ");
+      // console.log(" red:" + tempData.red);
+      // console.log(" blue:" + tempData.blue);
+      // console.log(" green:" + tempData.green);
+
+      //thingyColor.innerHTML = tempData.value;+ " " + tempData.unit;
+      thingyRed.innerHTML = tempData.red;
+      TD.update({red:tempData.red});
+      thingyBlue.innerHTML = tempData.blue;
+      TD.update({blue:tempData.blue});
+      thingyGreen.innerHTML = tempData.green;
+      TD.update({green:tempData.green});
+
+
+
+    }
+
+    const myLoggerGas = data => {
+      const tempData = data.detail;
+      //console.log(tempData);
+      thingyGas.innerHTML = tempData.TVOC.value + " " + tempData.TVOC.unit + " - " + tempData.eCO2.value + " " + tempData.eCO2.unit  ;
+      TD.update({GasSensor:tempData.TVOC.value + " " + tempData.TVOC.unit + " - " + tempData.eCO2.value + " " + tempData.eCO2.unit });
+    }
+
+    const myLoggerRawData = data => {
+      const tempData = data.detail;
+      //  console.log("siamo i dati:");
+      //console.log(data);
+      //console.log("e noi i dettagli dei dati:");
+      //  console.log(data.detail);
+      thingyRawdata.innerHTML = tempData.accelerometer.x + " " + tempData.accelerometer.y + " " + tempData.accelerometer.z + " " + tempData.gyroscope.x + " " + tempData.gyroscope.y + " " + tempData.gyroscope.z;
+      // console.log('Raw data: Accelerometer: ' + tempData.accelerometer.x +' x ' +  tempData.accelerometer.y +' y ' + tempData.accelerometer.z + ' z ' + " G ");
+      // console.log('Raw data: Gyroscope: ' + tempData.gyroscope.x +' x ' +  tempData.gyroscope.y +' y ' + tempData.gyroscope.z+ ' z ' + " deg/s " );
+      thingyGyroX.innerHTML = tempData.gyroscope.x;
+      TD.update({GyroX:tempData.gyroscope.x});
+      thingyGyroY.innerHTML = tempData.gyroscope.y;
+      TD.update({GyroY:tempData.gyroscope.y});
+      thingyGyroZ.innerHTML = tempData.gyroscope.z;
+      TD.update({GyroZ:tempData.gyroscope.z});
+      thingyAccX.innerHTML = tempData.accelerometer.x;
+      TD.update({AccX:tempData.accelerometer.x});
+      thingyAccY.innerHTML = tempData.accelerometer.y;
+      TD.update({AccY:tempData.accelerometer.y});
+      thingyAccZ.innerHTML = tempData.accelerometer.z;
+      TD.update({AccZ:tempData.accelerometer.z});
+
+      //console.log(tempData);
+      //  thingyGas.innerHTML = tempData.TVOC.value + " " + tempData.TVOC.unit + " - " + tempData.eCO2.value + " " + tempData.eCO2.unit  ;
+
+    }
+
+
+
+
+
+
+    async function start(device) {
+      try {
+        await device.connect();
+        // READ DEVICE NAME OK
+        const deviceName = await device.name.read();
+        console.log(deviceName);
+        //console.log(tval[1].innerHTML);
+        thingyName.innerHTML = deviceName.name;
+        //    l:TD.label({x:10,y:10,width:200,height:130,label:tName}),
+
+
+        //        console.log("TODO impostare label a" + deviceName.name);
+        const tlabel = document.getElementsByClassName("td_label");
+        //   tlabel[0].setHTML('<div class="td td_label" style="width: 200px; height: 130px; left: 10px; top: 10px;"><span>'+ deviceName.name + '</span></div>');
+        tlabel[0].querySelector('span').setHTML(deviceName.name);
+
+        // READ LED STATUS
+        const currentLedConfiguration = await device.led.read();
+        // console.log(currentLedConfiguration);
+
+        
+        // set led to green?  or read alarm status from dashboard
+        const newLedConfiguration = {
+          mode: "breathe",
+          color: "green",
+          intensity: 50,
+          delay: 1000,
+        }
+        await device.led.write(newLedConfiguration);
+        readAlarm(device);
+
+
+        const newSoundConfiguration = {
+          speakerMode: 3
+        }
+        const newSpeakerData = {
+          mode: 3,
+          sample: 5
+        }
+        // thera are 9 samples sounds (from 0 to 8)
+        // 0: collect point 1 and 1: collect point 2, 
+        // 2: explosion 1  and 3: explosion 2
+        // 4: hit 
+        // 5: pick up 01, // 6: pick up 02
+        // 7: shoot 01, // 8: shoot 2
+
+        await device.soundconfiguration.write(newSoundConfiguration);
+        await device.speakerdata.write(newSpeakerData);
+
+
+        const tbutton = document.querySelector(".td_btn");
+        tbutton.style.setProperty('--td-lightcol', '#064');
+        //tbutton.style.background = '#64';
+        const tbutton_a = document.querySelector(".td_btn_a");
+        //tbutton.style.color = '#64';
+        tbutton.style.setProperty('--td-lightcol', '#064');
+        TD.update({Alertbutton:1});
+        //tbutton.setValue(1)
+
+        // READ BATTERY OK
+        const currentBatteryLevel = await device.battery.read();
+        // console.log('battery: ' + currentBatteryLevel);
+        thingyBattery.innerHTML = currentBatteryLevel.status;
+        //console.log("TODO impostare battery gauge" + currentBatteryLevel.status);
+        TD.update({battery:currentBatteryLevel.status});
+
+        // MOTION sensor
+
+
+
+
+        //function onRawData(raw_data) {
+
+
+
+
+
+
+
+        // READ TEMPERATURE OK
+        device.addEventListener("temperature", myLoggerTemperature);
+        await device.temperature.start();
+
+
+        // READ GRAVITY VECTOR OK
+        device.addEventListener("gravityvector", myLoggerGravity);
+        await device.gravityvector.start();
+
+        // READ HUMIDITY
+        device.addEventListener("humidity", myLoggerHumidity);
+        await device.humidity.start();
+
+        // READ PRESSURE
+        device.addEventListener("pressure", myLoggerPressure);
+        await device.pressure.start();
+
+        // READ GAS
+        device.addEventListener("gas", myLoggerGas);
+        await device.gas.start();
+
+        // READ HEADING
+        device.addEventListener("heading", myLoggerHeading);
+        await device.heading.start();
+
+        // READ COLOR SENSOR
+        device.addEventListener("color", myLoggerColor);
+        await device.color.start();
+
+        // READ LED CONFIGURATION OK
+        //          const currentLedConfiguration = await device.led.read();
+        //          console.log(currentLedConfiguration);
+
+        // READ HUMIDITY
+        //device.addEventListener("humidity", myLoggerHumidity);
+        //await device.humidity.start();
+
+        // READ RAW DATA  OK
+        device.addEventListener("rawdata", myLoggerRawData);
+        await device.rawdata.start();
+
+        //    console.log('Raw data: Accelerometer: ' + device.rawdata.accX +' x ' +  device.rawdata.accY +' y ' + device.rawdata.accZ + ' z ');
+        //  ta.formattedData.accelerometer.x, formattedData.accelerometer.y, formattedData.accelerometer.z);
+        //  console.log('Raw data: Gyroscope: ' + device.rawdata.gyroX +' x ' +  device.rawdata.gyroY +' y ' + device.rawdata.gyroZ + ' z ');
+        //console.log('Raw data: Gyroscope: x %d, y %d, z %d',
+        //  ta.formattedData.gyroscope.x, formattedData.gyroscope.y, formattedData.gyroscope.z);
+        //console.log('Unformatted Raw data: Compass: ' + device.rawdata.compassX +' x ' +  device.rawdata.compassY +' y ' + device.rawdata.compassZ + ' z ');
+        //console.log('Raw data: Compass: x %d, y %d, z %d',
+        //  ta.formattedData.compass.x, formattedData.compass.y, formattedData.compass.z);
+        //}
+        // READ GPS INFO FROM SCREEN AND UPDATE MAP
+
+
+        // WRITE LED OK
+        /*
+        await device.led.write({
+        mode: "breathe",
+        color: "red",
+        intensity: 50,
+        delay: 1000,
+      });
+      */
+
+      // TODO: automatic disconnect disabled for testing on the road
+      // setTimeout(async () => {
+      //   await device.disconnect();
+      //   console.log("Disconnected from the device");
+      // }, 120000);
+
+    } catch (error) {
+      console.error(error);
+    }
+  }
+
+
+  async function changeLED(device, color="random") {
+    //var color_array = ['green', 'yellow','orange','red','purple'];
+    var color_array = ["red", "green", "yellow", "blue", "purple", "cyan", "white"]
+    if (color == "random") {
+      var led_color = color_array[Math.floor(Math.random()*color_array.length)];
+      var led_mode="breathe"
+      console.log('set RANDOM led color ' + led_color);
+    }
+    else {
+      var led_color = color;
+      var led_mode = "breathe"
+      console.log('set led color ' + led_color);
+    }
+
+    const newAlertLedConfiguration = {
+      mode: led_mode,
+      color: led_color,
+      intensity: 50,
+      delay: 1000,
+  }
+    //console.log("CHANGE LED");
+    await device.led.write(newAlertLedConfiguration);
+    //TD.update({Connect: 0});
+    const tbutton_a = document.querySelector(".td_btn_a");
+    //tbutton.style.color = '#64';
+    //tbutton_a.style.setProperty('--td-lightcol', '#064');
+    tbutton_a.style.setProperty('background-color', led_color);
+  }
+
+  function changeAlarm(led_color) {
+    const tbutton_a = document.querySelector(".td_btn_a");
+    //tbutton.style.color = '#64';
+    //tbutton_a.style.setProperty('--td-lightcol', '#064');
+    tbutton_a.style.setProperty('background-color', led_color);
+  }
+  async function readAlarm(device) {
+    const tbutton_a = document.querySelector(".td_btn_a");
+    // var led_color = tbutton_a.style.background-color;
+    const style = getComputedStyle(tbutton_a);
+    const led_color = style.backgroundColor;
+    console.log(led_color); // rgb(0, 0, 0)
+    // console.log(led_color);
+    const newAlertLedConfiguration = {
+      mode: "breathe",
+      color: led_color,
+      intensity: 50,
+      delay: 1000,
+  }
+    //console.log("CHANGE LED");
+    await device.led.write(newAlertLedConfiguration);
+  }
+
+  async function OffPressed(device) {
+    const turnLEDoff = {
+      mode: "off"
+    }
+
+    await device.led.write(turnLEDoff);
+    //    const tbutton_a = document.querySelector(".td_btn_a");
+    console.log("Led off")
+    //  TD.update({LEDoffbutton:1});
+
+  }
+
+  async function MakeSound(device) {
+    console.log('make sound alarm');
+
+    const newSoundConfiguration = {
+          speakerMode: 3
+        }
+        const newSpeakerData = {
+          mode: 3,
+          sample: 0
+        }
+
+        await device.soundconfiguration.write(newSoundConfiguration);
+        await device.speakerdata.write(newSpeakerData);
+  }
+
+
+
+  function stop(device) {
+    device.disconnect();
+    console.log("Disconnected from the device");
+  }
+  document.querySelector("#connectBtn").addEventListener("click", async () => {
+    start(thingy);
+    getLocation();
+    TD.update({Connect: 1});
+    TD.update({Gps: 1});
+    startLocation();
+  });
+  document.querySelector("#gpsBtn").addEventListener("click", async () => {
+    // start(thingy);
+    getLocation();
+    // TD.update({Connect: 1});
+    TD.update({Gps: 1});
+    startLocation();
+  });
+  document.querySelector("#disconnectBtn").addEventListener("click", async () => {
+    stop(thingy);
+    stopLocation();
+    TD.update({Connect: 0});
+    TD.update({Gps: 0});
+  });
+  document.querySelector("#changeLED").addEventListener("click", async () => {
+    try {
+    await changeLED(thingy);
+    } catch {
+    console.log("Could not changeLED");
+    changeAlarm();
+    }
+  });
+  document.querySelector("#changeLEDYellow").addEventListener("click", async () => {
+    try {
+      await changeLED(thingy, "yellow");
+    } catch {
+    console.log("Could not changeLED");
+    changeAlarm("yellow");
+    }
+  });
+  document.querySelector("#changeLEDRed").addEventListener("click", async () => {
+    try {
+      await changeLED(thingy, "red");
+    } catch {
+    console.log("Could not changeLED");
+    changeAlarm("red");
+    }
+  });
+  document.querySelector("#changeLEDGreen").addEventListener("click", async () => {
+    try {
+      await changeLED(thingy, "green");
+    } catch {
+    console.log("Could not changeLED")
+    changeAlarm("green");
+    }
+  });
+  document.querySelector("#changeLEDPurple").addEventListener("click", async () => {
+    try {
+      await changeLED(thingy, "purple");
+    } catch {
+    console.log("Could not changeLED");
+    changeAlarm("purple");
+    }
+  });
+  document.querySelector("#changeLEDBlue").addEventListener("click", async () => {
+    try {
+      await changeLED(thingy, "blue");
+    } catch {
+    console.log("Could not changeLED");
+    changeAlarm("blue");
+    }
+  });
+
+  document.querySelector("#OffPressed").addEventListener("click", async () => {
+    await OffPressed(thingy);
+  });
+  document.querySelector("#MakeSound").addEventListener("click", async () => {
+    await MakeSound(thingy);
+  });
+  document.querySelector("#MakeTestSound").addEventListener("click", async () => {
+    await MakeSound(thingy);
+  });
+  document.querySelector("#sendPost").addEventListener("click", async () => {
+    //sendTimedPost();
+    TD.update({sendData: 1});
+  });
+  document.querySelector("#clearPost").addEventListener("click", async () => {
+    //clearTimedPost();
+    TD.update({sendData: 0});
+  });
+  </script>
+
+
+<p><b>Dashboard tinyDash (local data):</b></p>
+  <br>
+  <div id="tinyDash" class="tinyDashwrapper" style="position:relative; min-height:620px; width:650px; background-color:black;"></div>
+  <div id="tinyDashMapWrapper" class="tinyDashMapWrapper" style="height:450px; width:650px; "><div id="Lmap" style="height:450px;"></div></div>
+  <br>
+  <p ><b>Dashboard testuale con dati locali:</b></p>
+  <br>
+  "thingy52 name:" <span id="thingyName"></span><br>
+  "thingy52 battery:" <span id="thingyBattery"></span><br>
+  "thingy52 temperature:" <span id="thingyTemp"></span><br>
+  "thingy52 gravity vector:" <span id="thingyGVector"></span><br>
+  "thingy52 humidity:" <span id="thingyHumidity"></span><br>
+  "thingy52 pressure:" <span id="thingyPressure"></span><br>
+  "thingy52 red:" <span id="thingyRed"></span><br>
+  "thingy52 green:" <span id="thingyGreen"></span><br>
+  "thingy52 blue:" <span id="thingyBlue"></span><br>
+  "thingy52 gas:" <span id="thingyGas"></span><br>
+  <!-- "thingy52 color:" <span id="thingyColor"></span><br> -->
+  "thingy52 heading:" <span id="heading"></span><br>
+  "thingy52 Rawdata:" <span id="thingyRawdata"></span><br>
+  "thingy52 GyroX:" <span id="thingyGyroX"></span><br>
+  "thingy52 GyroY:" <span id="thingyGyroY"></span><br>
+  "thingy52 GyroZ:" <span id="thingyGyroZ"></span><br>
+  "thingy52 AccX:" <span id="thingyAccX"></span><br>
+  "thingy52 AccY:" <span id="thingyAccY"></span><br>
+  "thingy52 AccZ:" <span id="thingyAccZ"></span><br>
+  "lat:" <span id="lat"></span><br>
+  "lng:" <span id="lng"></span><br>
+  "time:" <span id="time"></span><br>
+  <!-- "heading:" <span id="heading"></span><br> -->
+  "dir:" <span id="dir"></span><br>
+  "info:" <span id="info"></span><br>
+  <br>
+  <p><b>Dashboard testuale con dati via websocket:</b></p>
+  <br>
+  "thingy52 name:" <span id="wsthingyName"></span><br>
+  "thingy52 battery:" <span id="wsthingyBattery"></span><br>
+  "thingy52 temperature:" <span id="wsthingyTemp"></span><br>
+  "thingy52 gravity vector:" <span id="wsthingyGVector"></span><br>
+  "thingy52 humidity:" <span id="wsthingyHumidity"></span><br>
+  "thingy52 pressure:" <span id="wsthingyPressure"></span><br>
+  "thingy52 red:" <span id="wsthingyRed"></span><br>
+  "thingy52 green:" <span id="wsthingyGreen"></span><br>
+  "thingy52 blue:" <span id="wsthingyBlue"></span><br>
+  "thingy52 gas:" <span id="wsthingyGas"></span><br>
+  <!-- "thingy52 color:" <span id="wsthingyColor"></span><br> -->
+  "thingy52 heading:" <span id="wsheading"></span><br>
+  "thingy52 Rawdata:" <span id="wsRawdata"></span><br>
+  "thingy52 GyroX:" <span id="wsthingyGyroX"></span><br>
+  "thingy52 GyroY:" <span id="wsthingyGyroY"></span><br>
+  "thingy52 GyroZ:" <span id="wsthingyGyroZ"></span><br>
+  "thingy52 AccX:" <span id="wsthingyAccX"></span><br>
+  "thingy52 AccY:" <span id="wsthingyAccY"></span><br>
+  "thingy52 AccZ:" <span id="wsthingyAccZ"></span><br>
+  "lat:" <span id="wslat"></span><br>
+  "lng:" <span id="wslng"></span><br>
+  "time:" <span id="wstime"></span><br>
+  <!-- "heading:" <span id="wsheading"></span><br> -->
+  "dir:" <span id="wsdir"></span><br>
+  "info:" <span id="wsinfo"></span><br>
+  <br>
+
+  <p><b>Server data via websocket:</b></p>
+  <br>
+  <button id="sendPost">saveData</button>
+  <button id="clearPost">stopData</button>
+  <button id="sendPot">savePot</button>
+  <button id="MakeTestSound">Make Test Sound</button>
+  <button id="clearPot">stopPot</button>
+  <p><b>controllo:</b></p>
+  <p><i>serve un risultato come questo:</i><br>
+    {"lng":18.3231221,"lat":39.9732783,"time":1672977529,"dir":61.8,"heading":62,"info":[{"key":"name", "value":"CAR1"},{"key":"temp", "value":20}]}
+  </p>
+  <p><i>ho ricevuto dal websocket:</i></p>
+  <p id="demo">
+  </p>
+<script>
+  // mi serve questo
+  //{"lng":18.3231221,"lat":39.9732783,"time":1672977529,"dir":61.8,"heading":62,"info":[{"key":"name", "value":"CAR1"},{"key":"temp", "value":20}]},
+
+  async function AlertPressed() {
+
+    var color_array = ["red", "green", "yellow", "blue", "purple", "cyan", "white"]
+    var led_color = color_array[Math.floor(Math.random()*color_array.length)];
+    console.log('set led color ' + led_color);
+
+    const newAlertLedConfiguration = {
+      mode: "breathe",
+      color: led_color,
+      intensity: 50,
+      delay: 1000,
+    }
+    //changeLed(device, led_color);
+    ///await device.led.write(newLedConfiguration);
+
+  }
+
+
+
+
+
+
+  function updateRT() {
+    var thingyName = document.getElementById("thingyName");
+    var thingyBattery = document.getElementById("thingyBattery");
+    var thingyTemp = document.getElementById("thingyTemp");
+    var thingyGVector = document.getElementById("thingyGVector");
+    var thingyHumidity = document.getElementById("thingyHumidity");
+    var thingyPressure = document.getElementById("thingyPressure");
+    var thingyRed = document.getElementById("thingyRed");
+    var thingyGreen = document.getElementById("thingyGreen");
+    var thingyBlue = document.getElementById("thingyBlue");
+    var thingyGas = document.getElementById("thingyGas");
+    var thingyRawdata = document.getElementById("thingyRawdata");
+    var thingyGyroX = document.getElementById("thingyGyroX");
+    var thingyGyroY = document.getElementById("thingyGyroY");
+    var thingyGyroZ = document.getElementById("thingyGyroZ");
+    var thingyAccX = document.getElementById("thingyAccX");
+    var thingyAccY = document.getElementById("thingyAccY");
+    var thingyAccZ = document.getElementById("thingyAccZ");
+    //var thingyColor = document.getElementById("thingyColor");
+    // var thingyHeading = document.getElementById("thingyHeading");
+    var lat = document.getElementById("lat");
+    var lng = document.getElementById("lng");
+    var heading = document.getElementById("heading");
+    var time = document.getElementById("time");
+    var dir = document.getElementById("dir");
+
+    var json_to_send = JSON.stringify({ "lng": lng.textContent,"lat":lat.textContent,"time":time.textContent.slice(0, -3),"dir":dir.textContent,"heading":heading.textContent,"info":[{"key":"name", "value":thingyName.textContent},{"key":"temp", "value":thingyTemp.textContent},{"key":"GVector","value":thingyGVector.textContent}] });
+    info.innerHTML('"info":[{"key":"name", "value":' + thingyName.textContent+  '},{"key":"temp", "value":'+thingyTemp.textContent+'},{"key":"GVector","value":' + thingyGVector.textContent+'}');
+    //startup(json_to_send);
+    testsend(json_to_send);
+  }
+
+  function testsend(json) {
+    socketExample.send(json);
+  }
+  function updatestatus(data) {
+    //console.log("received: " + data);
+    //console.log(typeof data);
+
+    /*if (typeof data === "string") {
+
+    if (data !== "something")
+    if (
+    typeof data === 'object' &&
+    !Array.isArray(data) &&
+    data !== null
+  ) {*/
+  if (data != "something") {
+    console.log("working on : " + data);
+    data = JSON.parse(data);
+    // console.log(data);
+    //console.log(data.lng);
+    //console.log(data.info);
+    //console.log(data.info[0]);
+    //console.log(data.info[0].value);
+    //console.log(data.info[1]);
+    //console.log(data.info[1].value);
+    var thingyName = document.getElementById("wsthingyName");
+    //thingyName.setHTML(data.info[0].value);
+    var thingyBattery = document.getElementById("wsthingyBattery");
+    //thingyBattery.setHTML(data.info[0].value);
+    var thingyTemperature = document.getElementById("wsthingyTemp");
+    // thingyTemp.setHTML(data.info[1].value);
+    var thingyGVector = document.getElementById("wsthingyGVector");
+    // thingyGVector.setHTML(data.info[2].value);
+    // TODO check next line for alert
+    // if (data.info[2].value != "") {
+    //   // change LED COLOR of thingy to RED
+    //   // or play sound
+    //   // or activate alert
+    // }
+    var thingyHumidity = document.getElementById("wsthingyHumidity");
+    //thingyHumidity.setHTML(data.info[1].value);
+    var thingyHeading = document.getElementById("wsheading");
+    var thingyPressure = document.getElementById("wsthingyPressure");
+    var thingyRed = document.getElementById("wsthingyRed");
+    var thingyGreen = document.getElementById("wsthingyGreen");
+    var thingyBlue = document.getElementById("wsthingyBlue");
+    var thingyGas = document.getElementById("wsthingyGas");
+    var thingyRawdata= document.getElementById("wsthingyRawdata");
+    var thingyGyroX = document.getElementById("wsthingyGyroX");
+    var thingyGyroY = document.getElementById("wsthingyGyroY");
+    var thingyGyroZ = document.getElementById("wsthingyGyroZ");
+    var thingyAccX = document.getElementById("wsthingyAccX");
+    var thingyAccY = document.getElementById("wsthingyAccY");
+    var thingyAccZ = document.getElementById("wsthingyAccZ");
+    //var thingyColor = document.getElementById("wsthingyColor");
+    // var thingy = document.getElementById("wsthingyColor");
+    //thingyHeading.setHTML(data.heading);
+    // TODO: when we receive DATA we should add pressure and gas info
+
+
+    var lat = document.getElementById("wslat");
+    lat.setHTML(data.lat);
+    var lng = document.getElementById("wslng");
+    lng.setHTML(data.lng);
+    var heading = document.getElementById("wsheading");
+    thingyHeading.setHTML(data.heading);
+    var time = document.getElementById("wstime");
+    time.setHTML(data.time);
+    var dir = document.getElementById("wsdir");
+    dir.setHTML(data.dir);
+    var thingyInfo = document.getElementById("wsinfo");
+
+
+    try {
+      data.info;
+      // object exists
+      if (Array.isArray(data.info) ) {
+        for (i=0; i < data.info.length; i++) {
+          switch(data.info[i].key) {
+            case "name":
+            // update
+            thingyName.setHTML(data.info[i].value);
+            break;
+            case "temp":
+            // update
+            thingyTemperature.setHTML(data.info[i].value);
+            break;
+            case "GVector":
+            // update
+            thingyGVector.setHTML(data.info[i].value);
+            break;
+            case "Humidity":
+            // update
+            thingyHumidity.setHTML(data.info[i].value);
+            break;
+            case "Pressure":
+            // update
+            thingyPressure.setHTML(data.info[i].value);
+            break;
+            case "Rawdata":
+            // update
+            thingyRawdata.setHTML(data.info[i].value);
+            break;
+            case "GyroX":
+            thingyGyroX.setHTML(data.info[i].value);
+            break;
+            case "GyroY":
+            thingyGyroY.setHTML(data.info[i].value);
+            break;
+            case "GyroZ":
+            thingyGyroZ.setHTML(data.info[i].value);
+            break;
+            case "AccX":
+            thingyAccX.setHTML(data.info[i].value);
+            break;
+            case "AccY":
+            thingyAccY.setHTML(data.info[i].value);
+            break;
+            case "AccZ":
+            thingyAccZ.setHTML(data.info[i].value);
+            break;
+            case "Red":
+            // update
+            thingyRed.setHTML(data.info[i].value);
+            break;
+            case "Green":
+            // update
+            thingyGreen.setHTML(data.info[i].value);
+            break;
+            case "Blue":
+            // update
+            thingyBlue.setHTML(data.info[i].value);
+            break;
+            case "Gas":
+            // update
+            thingyGas.setHTML(data.info[i].value);
+            break;
+            // case "Color":
+            // // update
+            // thingyColor.setHTML(data.info[i].value);
+            // break;
+            case "Battery":
+            // update
+            thingyBattery.setHTML(data.info[i].value);
+            break;
+            default:
+            thingyInfo.setHTML(data.info[i].key + " " + data.info[i].value);
+            break;
+          }
+        }
+      }
+    }
+    catch {
+      // object does not exist
+      console.log('no info');
+    }
+
+
+
+  }
+}
+
+function startup() {
+  if (isLocalHost(window.location.href)) {
+    var socketExample = new WebSocket("ws://localhost:3002");
+  } else {
+    var socketExample = new WebSocket("wss://iot-t52.duckdns.org:3002");
+  }
+  try {
+    socketExample.onopen = function (event) {
+      socketExample.send('json_to_send');
+    };
+    socketExample.onmessage = function (event) {
+      //console.log(event.data);
+      document.getElementById("demo").innerHTML = event.data;
+      //console.log('update status');
+      updatestatus(event.data);
+    }
+  } catch (error) {
+    console.error(error);
+  }
+}
+
+
+//var json_to_send = JSON.stringify({ "lng": lng.textContent,"lat":lat.textContent,"time":time.textContent.slice(0, -3),"dir":dir.textContent,"heading":heading.textContent,"info":[{"key":"name", "value":thingyName.textContent},{"key":"temp", "value":thingyTemp.textContent},{"key":"GVector","value":thingyGVector.textContent}] });
+//startup(json_to_send);
+//testsend(json_to_send);
+
+
+function testsend(json) {
+  socketExample.send(json);
+}
+
+function sendTimedPost() {
+  var toggles = document.getElementsByClassName("td_toggle");
+  for (var i=0;i<toggles.length;i++) {
+    //console.log(toggles[i]);
+    if (toggles[i].querySelectorAll("span")[0].innerText == "Track") {
+      //console.log(toggles[i]);
+      if (toggles[i].getAttribute('pressed') == 0) {
+        //console.log(toggles[i]);
+        console.log('pressed -> cancello;')
+        clearInterval(timedPost);
+        //  TD.update({sendData: 0});
+      }
+      else if (toggles[i].getAttribute('pressed') == 1) {
+        //console.log(toggles[i]);
+        console.log('unpressed -> parte;')
+        timedPost=setInterval(sendPost,200);
+        //TD.update({sendData: 1});
+      }
+    }
+  }
+}
+
+function ConnectDashboard() {
+  var toggles = document.getElementsByClassName("td_toggle");
+  for (var i=0;i<toggles.length;i++) {
+    //console.log(toggles[i]);
+    if (toggles[i].querySelectorAll("span")[0].innerText == "Start") {
+      //console.log(toggles[i]);
+      if (toggles[i].getAttribute('pressed') == 0) {
+        //console.log(toggles[i]);
+        console.log('Start pressed -> cancello;')
+        document.querySelector("#disconnectBtn").click();
+        //clearInterval(timedPost);
+        //  TD.update({sendData: 0});
+      }
+      else if (toggles[i].getAttribute('pressed') == 1) {
+        //console.log(toggles[i]);
+        console.log('Start unpressed -> parte;')
+        document.querySelector("#connectBtn").click();
+        //timedPost=setInterval(sendPost,1000);
+        //TD.update({sendData: 1});
+      }
+    }
+  }
+}
+
+
+
+function clearTimedPost() {
+  clearInterval(timedPost);
+}
+
+function clearPot(url=PotBurst) {
+  console.log('Clear Pot ' + url);
+  TD.update({sendPot: 0});
+  clearInterval(url);
+}
+
+function logPot(url='') {
+  console.log('Pot Burst ' + url);
+}
+function togglePot(val) {
+  if (val) sendPot();
+  else clearPot();
+}
+function sendPot(DBitems = 'potfinds/') {
+  // var DBUrl = DbBaseUrl + 'potfinds/';
+  // setTimeout(clearPot, 10000);
+  // PotBurst = setInterval(logPot, 200, DBitems);
+  PotBurst = setInterval(sendPost, 200, 'potfinds/');
+  setTimeout(clearPot, 2000, PotBurst);
+  console.log("sendPOT");
+
+}
+function sendPost(DBitems = 'points/') {
+  var DBUrl = DbBaseUrl + DBitems;
+  var ApiUrl = NodeBaseUrl + 'thingy52/';
+  //
+  // if (isLocalHost(window.location.href)) {
+  //   var RestApiUrl = 'http://localhost:3002/thingy52';
+  // } else {
+  //   var RestApiUrl = 'https://iot-t52.duckdns.org:3002/thingy52';
+  // }
+  // if (isLocalHost(window.location.href)) {
+  //   var RestDBUrl = 'http://localhost:3000/points';
+  // } else {
+  //   //const RestApiUrl = '';
+  //   var RestDBUrl = 'https://iot-t52.duckdns.org/iot/proxy/proxy.php?url=http://localhost:3000/points&send_session=1&send_cookies=1&mode=native';
+  // }
+  var thingyName = document.getElementById("thingyName");
+  var thingyBattery = document.getElementById("thingyBattery");
+  var thingyTemp = document.getElementById("thingyTemp");
+  var thingyGVector = document.getElementById("thingyGVector");
+  var thingyHumidity = document.getElementById("thingyHumidity");
+  var thingyPressure = document.getElementById("thingyPressure");
+  var thingyRawdata = document.getElementById("thingyRawdata");
+  var thingyRed = document.getElementById("thingyRed");
+  var thingyGreen = document.getElementById("thingyGreen");
+  var thingyBlue = document.getElementById("thingyBlue");
+  var thingyGas = document.getElementById("thingyGas");
+  var thingyRawdata= document.getElementById("thingyRawdata");
+  var thingyGyroX = document.getElementById("thingyGyroX");
+  var thingyGyroY = document.getElementById("thingyGyroY");
+  var thingyGyroZ = document.getElementById("thingyGyroZ");
+  var thingyAccX = document.getElementById("thingyAccX");
+  var thingyAccY = document.getElementById("thingyAccY");
+  var thingyAccZ = document.getElementById("thingyAccZ");
+  //var thingyColor = document.getElementById("thingyColor");
+  // var thingyHeading = document.getElementById("thingyHeading");
+  var lat = document.getElementById("lat");
+  var lng = document.getElementById("lng");
+  var thingyHeading = document.getElementById("heading");
+  var time = document.getElementById("time");
+  var dir = document.getElementById("dir");
+
+
+
+  //var jsontosend = ;
+
+  fetch(DBUrl, {
+    method: 'POST',
+    headers: {
+      'Accept': 'application/json',
+      'Content-Type': 'application/json',
+      'Authorization': 'Basic '+btoa('uni:salento')
+    },
+    body: JSON.stringify({ "lng":lng.textContent,"lat":lat.textContent,"time":time.textContent,"dir":dir.textContent,"heading":thingyHeading.textContent,"info":[{"key":"name","value":thingyName.textContent},{"key":"temp","value":thingyTemp.textContent},{"key":"GVector","value":thingyGVector.textContent},{"key":"Humidity","value":thingyHumidity.textContent},{"key":"Pressure","value":thingyPressure.textContent},{"key":"Red","value":thingyRed.textContent},{"key":"Green","value":thingyGreen.textContent},{"key":"Blue","value":thingyBlue.textContent},{"key":"Gas","value":thingyGas.textContent},{"key":"Battery","value":thingyBattery.textContent},{"key":"GyroX","value":thingyGyroX.textContent},{"key":"GyroY","value":thingyGyroY.textContent},{"key":"GyroZ","value":thingyGyroZ.textContent},{"key":"AccX","value":thingyAccX.textContent},{"key":"AccY","value":thingyAccY.textContent},{"key":"AccZ","value":thingyAccZ.textContent}] })
+  })
+  .then(response => response)
+  // .then(response => console.log(JSON.stringify(response)))
+
+  fetch(ApiUrl, {
+    method: 'POST',
+    headers: {
+      'Accept': 'application/json',
+      'Content-Type': 'application/json',
+      'Authorization': 'Basic '+btoa('uni:salento')
+    },
+    body: JSON.stringify({ "lng":lng.textContent,"lat":lat.textContent,"time":time.textContent,"dir":dir.textContent,"heading":thingyHeading.textContent,"info":[{"key":"name","value":thingyName.textContent},{"key":"temp","value":thingyTemp.textContent},{"key":"GVector","value":thingyGVector.textContent},{"key":"Humidity","value":thingyHumidity.textContent},{"key":"Pressure","value":thingyPressure.textContent},{"key":"Red","value":thingyRed.textContent},{"key":"Green","value":thingyGreen.textContent},{"key":"Blue","value":thingyBlue.textContent},{"key":"Gas","value":thingyGas.textContent},{"key":"Battery","value":thingyBattery.textContent},{"key":"GyroX","value":thingyGyroX.textContent},{"key":"GyroY","value":thingyGyroY.textContent},{"key":"GyroZ","value":thingyGyroZ.textContent},{"key":"AccX","value":thingyAccX.textContent},{"key":"AccY","value":thingyAccY.textContent},{"key":"AccZ","value":thingyAccZ.textContent}] })
+  })
+  .then(response => response)
+  // .then(response => console.log(JSON.stringify(response)))
+} // fine sendPost
+</script>
+
+<script src="index_track.js"></script>
+<script>
+/* Copyright (c) 2017, Gordon Williams, MPLv2 License. https://github.com/espruino/TinyDash */
+/* All elements have x/y/width/height,name
+
+Elements that can be changed can also have `onchanged`
+
+TODO:
+terminal
+dial
+scrollbar
+*/
+var TD = {};
+(function() {
+  //var LIGHTCOL = "#09F";
+  var LIGHTCOL = "#09F";
+  function toElement(html) {
+    var div = document.createElement('div');
+    div.innerHTML = html;
+    return div.childNodes[0];
+  }
+  function sendChanges(el, value) {
+    if (el.opts.name) {
+      var o = {};
+      o[el.opts.name] = value;
+      handleChange(o);
+    }
+    if (el.opts.onchange) {
+      el.opts.onchange(el, value);
+    }
+  }
+  function togglePressed(el) {
+    el.pressed = 0|!+el.getAttribute("pressed");
+    el.setAttribute("pressed", el.pressed);
+    sendChanges(el, el.pressed);
+    if (!el.toggle) {
+      // non-toggleable elements always go back to not pressed
+      el.pressed = 0;
+      setTimeout(function() {
+        el.setAttribute("pressed", 0);
+      }, 200);
+    }
+  }
+  function formatText(txt) {
+    if ("number"!=typeof txt)
+    return txt;
+    if (Math.floor(txt)==txt) return txt; // ints
+    if (Math.abs(txt)>1000) return txt.toFixed(0);
+    if (Math.abs(txt)>100) return txt.toFixed(1);
+    return txt.toFixed(2);
+  }
+  /// set up position/etc on the html element
+  function setup(type, opts, el) {
+    el.type = type;
+    el.style="width:"+opts.width+"px;height:"+opts.height+"px;left:"+opts.x+"px;top:"+opts.y+"px;";
+    el.opts = opts;
+    return el;
+  }
+  function handleChange(data) {
+    // console.log("Change", data);
+  }
+
+  // --------------------------------------------------------------------------
+  /* Update any named elements with the new data */
+  TD.update = function(data) {
+    var els = document.getElementsByClassName("td");
+    for (var i=0;i<els.length;i++) {
+      if (els[i].opts.name && els[i].setValue && els[i].opts.name in data)
+      els[i].setValue(data[els[i].opts.name]);
+    }
+  }
+
+  // --------------------------------------------------------------------------
+  /* {label} */
+  TD.label = function(opts) {
+    return setup("label",opts,toElement('<div class="td td_label"><span>'+opts.label+'</span></div>'));
+  };
+  /* {label, glyph, value, toggle}*/
+  TD.button = function(opts) {
+    var pressed = opts.value?1:0;
+    opts.glyph = opts.glyph || "&#x1f4a1;";
+    var el = setup("button",opts,toElement('<div class="td td_btn" pressed="'+pressed+'"><span>'+opts.label+'</span><div class="td_btn_a">'+opts.glyph+'</div></div>'));
+    el.getElementsByClassName("td_btn_a")[0].onclick = function() {
+      togglePressed(el);
+    };
+    el.setValue = function(v) {
+      el.pressed = v?1:0;
+      el.setAttribute("pressed", el.pressed);
+    };
+    return el;
+  };
+  /* {label,value}*/
+  TD.toggle = function(opts) {
+    var pressed = opts.value?1:0;
+    var el = setup("toggle",opts,toElement('<div class="td td_toggle" pressed="'+pressed+'"><span>'+opts.label+'</span><div class="td_toggle_a"><div class="td_toggle_b"/></div></div>'));
+    el.toggle = true;
+    el.getElementsByClassName("td_toggle_a")[0].onclick = function() {
+      togglePressed(el);
+    };
+    el.setValue = function(v) {
+      el.pressed = v?1:0;
+      el.setAttribute("pressed", el.pressed);
+    };
+    return el;
+  };
+  /* {label,value,step,min,max}
+  if step is specified, clickable up/down arrows are added */
+  TD.value = function(opts) {
+    var html;
+    opts.value = parseFloat(opts.value);
+    if (opts.step)
+    html = '<div class="td_val_b">&#9664;</div><div class="td_val_a"></div><div class="td_val_b">&#9654;</div>';
+    else html = '<div class="td_val_a"></div>';
+    var el = setup("value",opts,toElement('<div class="td td_val"><span>'+opts.label+'</span>'+html+'</div>'));
+    el.setValue = function(v) {
+      if (opts.min && v<opts.min) v=opts.min;
+      if (opts.max && v>opts.max) v=opts.max;
+      if (opts.value != v) {
+        sendChanges(el, v);
+        opts.value = v;
+      }
+      el.getElementsByClassName("td_val_a")[0].innerHTML = formatText(v);
+    };
+    if (opts.step) {
+      var b = el.getElementsByClassName("td_val_b");
+      b[0].onclick = function(e) {
+        el.setValue(opts.value-opts.step);
+      };
+      b[1].onclick = function(e) {
+        el.setValue(opts.value+opts.step);
+      };
+    }
+    el.setValue(opts.value);
+    return el;
+  };
+  /* {label,value,min,max}*/
+  TD.gauge = function(opts) {
+    var v = (opts.value===undefined)?0:opts.value;
+    var min = (opts.min===undefined)?0:opts.min;
+    var max = (opts.max===undefined)?1:opts.max;
+    var el = setup("gauge",opts,toElement('<div class="td td_gauge"><span>'+opts.label+'</span><canvas></canvas><div class="td_gauge_a">'+v+'</div></div>'));
+    el.value = v;
+    var c = el.getElementsByTagName("canvas")[0];
+    var ctx = c.getContext("2d");
+    function draw() {
+      c.width = c.clientWidth;
+      c.height = c.clientHeight;
+      var s = Math.min(c.width,c.height);
+      ctx.lineCap="round";
+      ctx.clearRect(0,0,c.width,c.height);
+      ctx.beginPath();
+      ctx.lineWidth=20;
+      ctx.strokeStyle = "#000";
+      ctx.arc(c.width/2, c.height/2+20, (s/2)-24, Math.PI*0.75, 2.25 * Math.PI);
+      ctx.stroke();
+      ctx.beginPath();
+      ctx.lineWidth=16;
+      ctx.strokeStyle = LIGHTCOL;
+      ctx.strokeStyle = 'var(--td-lightcol)';
+      var v = (el.value-min) / (max-min);
+      if (v<0) v=0;
+      if (v>1) v=1;
+      ctx.arc(c.width/2, c.height/2+20, (s/2)-24, Math.PI*0.75, (0.75+(1.5*v))*Math.PI);
+      ctx.stroke();
+    }
+    setTimeout(draw,100);
+    el.onresize = draw;
+    el.setValue = function(v) {
+      el.value = v;
+      el.getElementsByClassName("td_gauge_a")[0].innerHTML = formatText(v);
+      draw();
+    };
+    return el;
+  };
+  /* {label
+  gridy - optional - grid value for y. Also enables labels on axis
+  ylabel - optional - function(y_value) to format y axis labels, eg: function(y) { return y.toFixed(1); }
+  gridx - optional - grid value for x. Also enables labels on axis
+  xlabel - optional - function(x_value) to format x axis labels, eg: function(x) { return x.toFixed(1); }
+}
+*/
+TD.graph = function(opts) {
+  var el = setup("graph",opts,toElement('<div class="td td_graph"><span>'+opts.label+'</span><canvas></canvas></div>'));
+  var c = el.getElementsByTagName("canvas")[0];
+  var ctx = c.getContext("2d");
+  el.setData = function(d) {
+    el.opts.data = d;
+    el.draw();
+  };
+  el.draw = function() {
+    c.width = c.clientWidth;
+    c.height = c.clientHeight;
+    var s = Math.min(c.width,c.height);
+    var xbase = 18;
+    var ybase = c.height-18;
+    var xs = (c.width-8-xbase);
+    var ys = (ybase-28);
+    ctx.font = "8px Sans";
+    ctx.fillStyle = "#000";
+    ctx.fillRect(4,24,c.width-8,c.height-28);
+    var dxmin,dxmax,dymin,dymax;
+    if (el.opts.data !== undefined) {
+      var traces = ("object"==typeof el.opts.data[0]) ?
+      el.opts.data : [el.opts.data];
+      traces.forEach(function(trace) {
+        for (var i in trace) {
+          i = parseFloat(i);
+          var v = parseFloat(trace[i]);
+          if (dxmin===undefined || i<dxmin) dxmin=i;
+          if (dxmax===undefined || i>dxmax) dxmax=i;
+          if (dymin===undefined || v<dymin) dymin=v;
+          if (dymax===undefined || v>dymax) dymax=v;
+        }
+      });
+      if (el.opts.gridy) {
+        var gy = el.opts.gridy;
+        dymin = gy*Math.floor(dymin/gy);
+        dymax = gy*Math.ceil(dymax/gy);
+      }
+      var dxs = dxmax+1-dxmin;
+      var dys = dymax-dymin;
+      if (dxs==0) dxs=1;
+      if (dys==0) dys=1;
+      function getx(x) { return xbase+(xs*(x-dxmin)/dxs); }
+      function gety(y) { return ybase-(ys*(y-dymin)/dys); }
+      traces.forEach(function(trace, idx) {
+        ctx.beginPath();
+        ctx.strokeStyle = (traces.length>1) ? "hsl("+(idx*360/traces.length)+", 100%, 50%)" : LIGHTCOL;
+        ctx.strokeStyle = (traces.length>1) ? "hsl("+(idx*360/traces.length)+", 100%, 50%)" : 'var(--td-lightcol)';
+        for (var i in trace) {
+          ctx.lineTo(getx(parseFloat(i)),
+          gety(parseFloat(trace[i])));
+        }
+        ctx.stroke();
+      });
+      ctx.fillStyle = "#fff";
+      if (el.opts.gridy) {
+        ctx.textAlign="right";
+        for (var i=dymin;i<=dymax;i+=el.opts.gridy) {
+          var y = gety(i);
+          var t = el.opts.ylabel?el.opts.ylabel(i):i;
+          ctx.fillRect(xbase-1, y, 3, 1);
+          if (y>ctx.measureText(t).width/2) // does it fit?
+          ctx.fillText(t, xbase-5, y+2);
+        }
+      }
+      if (el.opts.gridx) {
+        var gx = el.opts.gridx;
+        ctx.textAlign="center";
+        for (var i=gx*Math.ceil(dxmin/gx);i<=dxmax;i+=gx) {
+          var x = getx(i);
+          var t = el.opts.xlabel?el.opts.xlabel(i):i;
+          ctx.fillRect(x,ybase-1, 1, 3);
+          ctx.fillText(t, x, ybase+10);
+        }
+      }
+    } else {
+      ctx.fillStyle = "#888";
+      ctx.textAlign = "center";
+      ctx.fillText("[No Data]", xbase+(xs/2), ybase-(ys/2));
+    }
+    // axes
+    ctx.beginPath();
+    ctx.strokeStyle = "#fff";
+    ctx.moveTo(xbase,ybase-ys);
+    ctx.lineTo(xbase,ybase+10);
+    ctx.moveTo(xbase-10,ybase);
+    ctx.lineTo(xbase+xs,ybase);
+    ctx.stroke();
+  }
+  setTimeout(el.draw,100);
+  el.onresize = el.draw;
+  return el;
+};
+/* {label,text}
+text = newline separated linex
+*/
+TD.log = function(opts) {
+  if (!opts.text) opts.text="";
+  var el = setup("log",opts,toElement('<div class="td td_log"><span>'+opts.label+'</span><div class="td_log_a td_scrollable"></div></div>'));
+  el.update = function() {
+    el.getElementsByClassName("td_log_a")[0].innerHTML = opts.text.replace(/\n/g,"<br/>\n");
+  };
+  el.log = function(txt) {
+    opts.text += "\n"+txt;
+    el.update();
+    var e = el.getElementsByClassName("td_log_a")[0];
+    e.scrollTop = e.scrollHeight;
+  };
+  el.clear = function() {
+    opts.text = "";
+    el.update();
+  };
+  return el;
+};
+/* {label}*/
+TD.modal = function(opts) {
+  var el = setup("modal",opts,toElement('<div class="td td_modal"><span>'+opts.label+'</span></div>'));
+  el.onclick = function() {
+    togglePressed(el);
+    if (!el.opts.onchange)
+    el.remove();
+  };
+  el.remove = function() {
+    if (el.parentNode)
+    el.parentNode.removeChild(el);
+  };
+  return el;
+};
+
+})();
+</script>
+<style>/* Copyright (c) 2017, Gordon Williams, MPLv2 License. https://github.com/espruino/TinyDash */
+
+.td {
+  position: absolute;
+  /*border: 2px solid #555;*/
+  color: #fff;
+  font: 12px sans-serif;
+  background-color: #222;
+}
+.td span {
+  color: #888;
+  position: absolute; left: 8px; top: 8px;
+}
+
+.td_scrollable::-webkit-scrollbar-track {
+  background-color: #222;
+}
+
+.td_scrollable::-webkit-scrollbar {
+  width: 12px;
+  background-color: #000;
+}
+
+.td_scrollable::-webkit-scrollbar-thumb {
+  border-radius: 10px;
+  background-color: #555;
+}
+
+.td_label {
+  display: table;
+  text-align: center;
+}
+.td_label span {
+  display: table-cell;
+  vertical-align: middle;
+  font-size: 20px;
+}
+.td_btn {
+}
+.td_btn_a {
+  margin-top: 20px;
+  margin-left: auto; margin-right: auto; /* centered */
+  font-size: 30px;
+  font-weight: bolder;
+  color: #555;
+  border: 2px solid;
+  border-radius: 44px;
+  width: 52px;
+  height: 52px;
+  padding: 8px;
+  cursor: pointer;
+  user-select: none;
+}
+.td_btn_a:hover { background-color: #036; }
+.td_btn[pressed="1"] .td_btn_a { color: #09F; }
+.td_btn[pressed="1"] .td_btn_a:hover { background-color: #06B; }
+.td_toggle_a {
+  margin-top: 20px;
+  margin-left: auto; margin-right: auto; /* centered */
+  border: 2px solid #fff;
+  border-radius: 16px;
+  width: 50px;
+  height: 28px;
+}
+.td_toggle_a:hover {
+  background-color: #06B;
+}
+.td_toggle_b {
+  background-color: #fff;
+  border: 2px solid #fff;
+  border-radius: 8px;
+  width: 16px;
+  height: 16px;
+  margin: 4px;
+}
+.td_toggle[pressed="1"] .td_toggle_b {
+  margin-left: 26px;
+}
+.td_val {
+  text-align: center;
+}
+.td_val div {
+  display:inline-block;
+}
+.td_val_a {
+  margin-top: 20px;
+  font-size: 20px;
+  color: #09F;
+}
+.td_val_b {
+  margin-left: 10px;
+  margin-right: 10px;
+  font-size: 20px;
+  color: #09F;
+  cursor: pointer;
+  user-select: none;
+}
+.td_val_b:hover {
+  color:#fff;
+}
+
+
+.td_gauge {
+  text-align: center;
+}
+.td_gauge canvas {
+  width: 100%;
+  height: 100%;
+}
+.td_gauge_a {
+  position: absolute;
+  left: 0px; right: 0px; top: 50%;
+  font-size: 40px;
+  color: #09F;
+}
+.td_graph {
+  text-align: center;
+}
+.td_graph canvas {
+  width: 100%;
+  height: 100%;
+}
+.td_log_a {
+  position: absolute;
+  top: 24px;
+  left: 4px;
+  right: 4px;
+  bottom: 4px;
+  padding: 4px;
+  background-color: #000;
+  overflow: auto;
+}
+.td_modal {
+  background-color: rgba(0,0,0,0.75);
+  border: 2px solid white;
+  cursor: pointer;
+  user-select: none;
+}
+.td_modal span {
+  left: 50%; top: 50%;
+  transform: translate(-50%, -50%);
+  font-size: 40px;
+}
+</style>
+
+<!-- <link href="tinydash_editor.css" rel="stylesheet">
+<script src="tinydash_editor.js"></script> -->
+
+
+
+
+
+
+<script>
+
+var data = [];
+for (var i=0;i<100;i++) data.push(Math.cos(i/10));
+var currentdate = new Date();
+var datetime = currentdate.getDate() + "/"
++ (currentdate.getMonth()+1)  + "/"
++ currentdate.getFullYear() + " @ "
++ currentdate.getHours() + ":"
++ currentdate.getMinutes() + ":"
++ currentdate.getSeconds();
+
+var o = {
+  name:TD.label({x:10,y:10,width:200,height:60,label: "Nome"}),
+  datetime:TD.label({x:10,y:80,width:200,height:60,label: datetime}),
+  //m:TD.label({x:10,y:60,width:200,height:40,label: "Timestamp"}),
+  //n:TD.label({x:10,y:110,width:200,height:40,label: "Now"}),
+  start:TD.toggle({x:10,y:150,width:100,height:60,label:"Start",value:0,name:"Connect", onchange:function(e){o.log.log('connect pressed');ConnectDashboard();}}),
+  gps:TD.toggle({x:110,y:150,width:100,height:60,label:"GPS",value:0,name:"Gps", onchange:function(e){o.log.log('connect pressed');document.querySelector("#gpsBtn").click();}}),
+  //y:TD.toggle({x:10,y:150,width:200,height:60,label:"Connect",value:0,name:"Connect", onchange:function(e){o.log.log('connect pressed');}}),
+  threshold_y:TD.value({x:10,y:220,width:200,height:60,label:"Threshold Y",value:1.2,min:0.1,step:0.1,max:4,onchange:function(e,v){newvalue = Math.round((v + Number.EPSILON) * 100) / 100;o.log.log("soglia changed "+newvalue);}}),
+  Gvector:TD.value({x:10,y:290,width:200,height:50,label:"Gravity Vector Y", value:0, name:"GVector"}),
+  gas:TD.value({x:10,y:350,width:200,height:50,label:"Gas sensor TVOC or CO2 (eCO2)", value:0, name:"GasSensor"}),
+  red:TD.value({x:10,y:410,width:200,height:50,label:"Red", value:0,name:"red"}),
+  GyroX:TD.value({x:10,y:470,width:200,height:50,label:"GyroX", value:0,name:"GyroX"}),
+  AccX:TD.value({x:10,y:530,width:200,height:50,label:"AccX", value:0,name:"AccX"}),
+  temperature:TD.gauge({x:220,y:180,width:200,height:160,label:"Temperature (Celsius)",value:0,min:0,max:100,name:"temperature"}),
+  battery:TD.gauge({x:220,y:10,width:200,height:160,label:"Battery (%)",value:0,name:"battery"}),
+  //gr:TD.graph({x:220,y:220,width:400,height:170,label:"A Graph",data:data}),
+  hum:TD.value({x:220,y:350,width:200,height:50,label:"Humidity sensor", value:0, name:"HumiditySensor"}),
+  green:TD.value({x:220,y:410,width:200,height:50,label:"Green", value:0, name:"green"}),
+  GyroY:TD.value({x:220,y:470,width:200,height:50,label:"GyroY", value:0,name:"GyroY"}),
+  AccY:TD.value({x:220,y:530,width:200,height:50,label:"AccY", value:0,name:"AccY"}),
+  log:TD.log({x:430,y:10,width:200,height:160,label:"A Log",text:" "}),
+  track:TD.toggle({x:430,y:180,width:100,height:60,label:"Track",value:0,name:"sendData",onchange:sendTimedPost}),
+  pot:TD.toggle({x:530,y:180,width:100,height:60,label:"PotFinder",value:0,name:"sendPot",onchange:function(e){togglePot(e.pressed);}}),
+  alertbutton:TD.button({x:430,y:250,width:99,height:90,label:"Alert",value:0,name:"Alertbutton",onchange:function(e){o.log.log("Alert Pressed!");document.querySelector("#changeLED").click();}}),
+  ledoffbutton:TD.button({x:532,y:250,width:99,height:90,label:"LED Off",value:0,name:"LEDoffbutton",onchange:function(e){o.log.log("LED turned off!");document.querySelector("#OffPressed").click();}}),
+  pressuresensor:TD.value({x:430,y:350,width:200,height:50,label:"Pressure sensor", value:0, name:"PressureSensor"}),
+  blue:TD.value({x:430,y:410,width:200,height:50,label:"Blue", value:0, name:"blue"}),
+  GyroZ:TD.value({x:430,y:470,width:200,height:50,label:"GyroZ", value:0,name:"GyroZ"}),
+  AccZ:TD.value({x:430,y:530,width:200,height:50,label:"AccZ", value:0,name:"AccZ"}),
+  //modal:TD.modal({x:10,y:10,width:400,height:400,label:"Click to connect",onchange:function(el) {o.log.log("Modal clicked");el.remove()}})
+};
+o.log.log("Thingy52 IoT dashboard");
+for (var i in o) document.getElementById('tinyDash').appendChild(o[i]);
+//   setInterval(function() {
+//     TD.update({gauge : 40*Math.sin(Date.now()/1000)+50});
+// }, 100);
+//TD.startEditor();
+
+// function AggiornaSoglia() {
+//      console.log("ciao");
+//   }
+
+</script>
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.3/dist/leaflet.css"
+integrity="sha256-kLaT2GOSpHechhsozzB+flnD+zUyjE2LlfWPgU04xyI="
+crossorigin=""/>
+<script src="https://unpkg.com/leaflet@1.9.3/dist/leaflet.js"
+integrity="sha256-WBkoXOwTeyKclOHuWtc+i2uENFpDZ9YPdf5Hf+D7ewM="
+crossorigin=""></script>
+<link rel="stylesheet" href="https://unpkg.com/leaflet-control-geocoder/dist/Control.Geocoder.css" />
+<script src="https://unpkg.com/leaflet-control-geocoder/dist/Control.Geocoder.js"></script>
+
+<script>
+//var map = L.map('Lmap').setView([51.505, -0.09], 13);
+
+var map_init = L.map('Lmap', {
+  center: [39.9732783, 18.3231221],
+  zoom: 9
+});
+var osm = L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+  attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
+}).addTo(map_init);
+L.Control.geocoder().addTo(map_init);
+if (!navigator.geolocation) {
+  console.log("Your browser doesn't support geolocation feature!")
+  TD.update({gps:0});
+} else {
+  // setInterval(() => {
+  //     navigator.geolocation.getCurrentPosition(getMapPosition)
+  // }, 5000);
+};
+var marker, circle, lat, long, accuracy;
+var potholes;
+var Lbuche;
+var curposition;
+var currentPos;
+var distance;
+var min_distance =0;
+var nearest_hole;
+
+function getOriginalMapPosition(position) {
+  // console.log(position)
+  lat = position.coords.latitude
+  long = position.coords.longitude
+  accuracy = position.coords.accuracy
+  curposition = position;
+  currentPos = position;
+
+  if (marker) {
+    map_init.removeLayer(marker)
+  }
+
+  if (circle) {
+    map_init.removeLayer(circle)
+  }
+
+  marker = L.marker([lat, long])
+  circle = L.circle([lat, long], { radius: accuracy })
+
+  var featureGroup = L.featureGroup([marker, circle]).addTo(map_init)
+
+  map_init.fitBounds(featureGroup.getBounds())
+
+  console.log("Your coordinate is: Lat: " + lat + " Long: " + long + " Accuracy: " + accuracy)
+  queryDistance();
+  if (min_distance < 1000 && min_distance > 500) {
+    console.log("ALERT!");
+    console.log("minimal distance to the nearest pothole: " + min_distance );
+    console.log("nearest pothole id: " + nearest_hole );
+    // changeLED(thingy, "yellow");
+    const myAlarmTimeout = setTimeout(function() { 
+      document.querySelector("#changeLEDYellow").click();
+      document.querySelector("#MakeSound").click();
+      setTimeout(function() {  
+        document.querySelector("#MakeSound").click();
+    }, 1000);
+    setTimeout(function() {
+      document.querySelector("#MakeSound").click();
+    }, 2000);
+    }, 10000);
+  }
+  else if (min_distance < 500) {
+    console.log("ALERT!");
+    console.log("minimal distance to the nearest pothole: " + min_distance );
+    console.log("nearest pothole id: " + nearest_hole );
+    // changeLED(thingy, "purple");
+    // document.querySelector("#changeLEDPurple").click();
+    const myAlarmTimeout = setTimeout(function() { 
+      document.querySelector("#changeLEDPurple").click();
+      // document.querySelector("#MakeSound").click();
+      setTimeout(function() {
+      document.querySelector("#MakeSound").click();
+    }, 1000);
+    setTimeout(function() {
+      document.querySelector("#MakeSound").click();
+    }, 2000);
+    setTimeout(function() {
+      document.querySelector("#MakeSound").click();
+    }, 3000);
+    }, 8000);
+  }
+  else {
+    const myAlarmTimeout = setTimeout(function() { 
+      document.querySelector("#changeLEDGreen").click();
+    }, 10000);
+  }
+}
+
+const pxhr = new XMLHttpRequest();
+if (isLocalHost(window.location.href)) {
+  pxhr.open('GET', 'http://localhost:3000/potholes', true);
+} else {
+  pxhr.open('GET', 'https://iot-t52.duckdns.org:3000/potholes', true);
+}
+pxhr.onreadystatechange = pxhrCallback;
+pxhr.send();
+function queryDistance() {
+  //console.log(Lbuche);
+  var distance = 0;
+  min_distance = 100000;
+  if (currentPos) {
+    Lbuche.eachLayer(function(l) {
+      distance = L.latLng(currentPos.coords.latitude,currentPos.coords.longitude).distanceTo(l.getLatLng());
+      if (distance < min_distance) {
+        min_distance = distance;
+        nearest_hole = l.feature.properties.id;
+        // console.log(l.feature.properties.id);
+      }
+    });
+  }
+  console.log("distance: " + distance);
+}
+function pxhrCallback() {
+  if (pxhr.readyState === 4 && pxhr.status === 200) {
+    const pdata = JSON.parse(pxhr.responseText);
+    // console.log(pdata);
+
+    var buche = GeoJSON.parse(pdata, {Point: ['lat', 'lng']});
+    var redIcon = new L.Icon({
+      iconUrl: 'https://raw.githubusercontent.com/pointhi/leaflet-color-markers/master/img/marker-icon-2x-red.png',
+      shadowUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/0.7.7/images/marker-shadow.png',
+      iconSize: [25, 41],
+      iconAnchor: [12, 41],
+      popupAnchor: [1, -34],
+      shadowSize: [41, 41]
+    });
+    var greenIcon = new L.Icon({
+      iconUrl: 'https://raw.githubusercontent.com/pointhi/leaflet-color-markers/master/img/marker-icon-2x-green.png',
+      shadowUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/0.7.7/images/marker-shadow.png',
+      iconSize: [25, 41],
+      iconAnchor: [12, 41],
+      popupAnchor: [1, -34],
+      shadowSize: [41, 41]
+    });
+    var MyIcon = L.icon({
+      iconUrl: 'leaf-green.png',
+      iconSize:     [38, 95], // size of the icon
+      shadowSize:   [50, 64], // size of the shadow
+      iconAnchor:   [22, 94], // point of the icon which will correspond to marker's location
+      shadowAnchor: [4, 62],  // the same for the shadow
+      popupAnchor:  [-3, -76] // point from which the popup should open relative to the iconAnchor
+    });
+
+    potholes = buche.features;
+    // console.log(buche.features);
+    // console.log(potholes);
+    Lbuche = L.geoJSON(buche, {
+      pointToLayer: function(feature,latlng){
+        return L.marker(latlng,{icon: redIcon});
+      },
+      onEachFeature: onEachBuca,
+      // icon: greenIcon
+    }).addTo(map_init);
+    // console.log(rotas);
+    // markers = rotas;
+
+
+    function onEachBuca(feature, layer) {
+      layer.on('click', function(e) {
+        console.log(feature.properties);
+      });
+    }
+    // queryDistance();
+  }
+
+
+
+
+
+
+
+
+}
+
+
+</script>
+</div>
+</body>
+</html>

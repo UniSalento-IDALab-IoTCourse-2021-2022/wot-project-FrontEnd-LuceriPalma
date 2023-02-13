@@ -3,21 +3,18 @@
 
 <head>
   <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="viewport" content="width=device-width, initial-scale=0.5">
   <meta http-equiv="X-UA-Compatible" content="ie=edge">
-  <title>Map view</title>
+  <title>map - Road Condition Monitoring System based on Nordic Thingy:52</title>
   <link rel="icon" type="image/x-icon" href="favicon.png">
-
+  
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.2.3/dist/css/bootstrap.min.css" rel="stylesheet" integrity="sha384-rbsA2VBKQhggwzxH7pPCaAqO46MgnOM80zW1RWuH61DGLwZJEdK2Kadq2F9CUG65" crossorigin="anonymous">
+  <link rel="stylesheet" href="style.css">
 </head>
 
-
-
-  <body onload="startup();">
-    
-  <div id="demo">
-    Trial
-  </div>
-
+  <body style="background-color: #222;" onload="startup();">
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.2.3/dist/js/bootstrap.bundle.min.js" integrity="sha384-kenU1KFdBIe4zVF0s0G1M5b4hcpxyD9F7jL+jjXkk+Q2h455rYXK/7HAuoJl+0I4" crossorigin="anonymous"></script>    
+  
   <script
   src="https://code.jquery.com/jquery-3.3.1.min.js"
   integrity="sha256-FgpCb/KJQlLNfOu91ta32o/NMZxltwRo8QtmkMRdAu8="
@@ -29,31 +26,62 @@
   <!-- <a href="https://github.com/linghuam/Leaflet.TrackPlayBack"><img style="position: absolute; top: 0; left: 0; border: 0;z-index: 999;"
       src="https://s3.amazonaws.com/github/ribbons/forkme_left_green_007200.png" alt="Fork me on GitHub"></>a -->
   <!-- <div id='map' style=" position: absolute; left: 0; top: 0; right: 0; bottom: 0; width: 100%; height: 100%; overflow: hidden;"></div> -->
-  <div>
-    <div class="sidebar">
-      <div class="controls" style="padding:10px;">
-      <a href="javascript:void(0);" onclick="deleteAllPoints();">Delete ALL POINTS</a> - <a href="javascript:void(0);" onclick="deleteAllPots();">Delete ALL POTHOLES</a> -   <a href="javascript:void(0);" onclick="searchPot();">search POTHOLES</a>
+  <div class="container" style="z-index:10">
+    <div class="row">
+      <div class="col-12">
+        <header>
+          <!--  <a href="#" class="logo"></a> -->
+            <nav>
+                <ul class="menu"">
+                    <li><a href="./index.html">home</a></li>
+                    <!-- <li><a href="./index_track.html">Track</a></li> -->
+                    <!-- <li><a href="./index_map_demo.html">Fake Data Map</a></li> -->
+            <!-- <li><a href="./index_map.html">DB Map</a></li> -->
+                    <!-- <li><a href="https://iot-t52.duckdns.org/iot/proxy/proxy.php?url=http://localhost:3000/points&mode=native">DB Link</a></li> -->
+                    <li><a href="./index_dash_rt.html">Dashboard</a></li>
+                    <li><a href="./index_map_data.html">Map for maintenance</a></li>
+            <!-- <li><a href="./index_map_rt.html">Real time MAP</a></li> -->
+            <li><a href="./credits.html">Credits</a></li>
+                </ul>
+            </nav>
+        </header>
+      </div>
     </div>
-      <!-- -- Click the point on map to fill the data -- -->
-      <br>
-
+  </div>
+  <div class="container">
+    <div class="row">
+      <div class="col-xl-6 col-lg-12" style="margin-top:100px;">
+        <div id="map" style="height:600px; overflow: hidden; z-index:0;"></div>
+      </div>
+      <div class="col-xl-6 col-lg-12" style="margin-top:100px;" >
+      <div class="controls" style="background-color: #555;padding-right: 10px;padding-left: 30px;"> <a href="javascript:void(0);" onclick="deleteAllPoints();">Delete ALL POINTS</a> - <a href="javascript:void(0);" onclick="deleteAllPots();">Delete ALL POTHOLES</a> -   <a href="javascript:void(0);" onclick="searchPot();">search POTHOLES</a> </div>
       <!-- <p><b>Dashboard:</b></p> -->
-      <div id="tinyDash" class="tinyDashwrapper" style="position:relative; min-height:650px; width:650px; background-color:black;"></div>
-      <div id="tinyDashMapWrapper" class="tinyDashMapWrapper" style="height:450px; width:650px; "><div id="Lmap" style="height:450px;"></div></div>
-<div class="elenco" style="color:white; overflow-y: scroll; height:100px;background:red;"></div>
-<div class="info" style="background:yellow;"></div>
+      <div id="tinyDash" class="tinyDashwrapper" style="position:relative; min-height:590px; width:640px; background-color:black;"></div>
+      <!-- <div id="tinyDashMapWrapper" class="tinyDashMapWrapper" style="height:450px; width:650px; "> </div>-->
+  </div>
+</div>
+</div>
+<div class="container">
+  <div class="row">
+    <div class="col-lg-6 col-md-12">
+      <div class="titolo_elenco" style="color:white; overflow-y: scroll; height:20px;background-color: #036 ;"><span id="count_points" style="min-width:10px;color:white; background-color: #036">&nbsp;&nbsp;&nbsp;&nbsp;</span>&nbsp;&nbsp;Points in view</div>
+      <div class="elenco" style="color:white; overflow-y: scroll; height:100px;background-color:#036;"></div>
+      </div>
+      <div class="col-lg-6 col-md-12">
+      <div class="info" style="background:orange;">&nbsp;&nbsp;</div>
+      <!-- <p id="demo"></p> -->
     </div>
-
-    <div id="map" style=" position: absolute; left: 0; top: 0; right: 0; bottom: 0; width: 50%; height: 100%; overflow: hidden;"></div>
-
+  </div>
+</div>
 
   <script>
+  var clusters = [];
   var inBounds = [];
   if (isLocalHost(window.location.href)) {
-    var RestDBUrl = 'http://localhost:3000/points';
+    var RestDBUrl = 'http://localhost:3002/points';
   } else {
     //const RestApiUrl = '';
-    var RestDBUrl = 'https://iot-t52.duckdns.org/iot/proxy/proxy.php?url=http://localhost:3000/points&send_session=1&send_cookies=1&mode=native';
+    var RestDBUrl = 'https://iot-t52.duckdns.org:3002/points';
   }
 
   function printDateTime(time) {
@@ -92,9 +120,9 @@
     // get data from server
     const xhr = new XMLHttpRequest();
     if (isLocalHost(window.location.href)) {
-    xhr.open('GET', 'http://localhost:3000/points', true);
+    xhr.open('GET', 'http://localhost:3002/points', true);
   } else {
-     xhr.open('GET', 'https://iot-t52.duckdns.org/iot/proxy/proxy.php?url=http://localhost:3000/points&mode=native', true);
+     xhr.open('GET', 'https://iot-t52.duckdns.org:3002/points', true);
      }
     xhr.onreadystatechange = xhrCallback;
     xhr.send();
@@ -128,9 +156,9 @@
 
     const pxhr = new XMLHttpRequest();
     if (isLocalHost(window.location.href)) {
-    pxhr.open('GET', 'http://localhost:3000/potholes', true);
+    pxhr.open('GET', 'http://localhost:3002/potholes', true);
   } else {
-     pxhr.open('GET', 'https://iot-t52.duckdns.org/iot/proxy/proxy.php?url=http://localhost:3000/potholes&mode=native', true);
+     pxhr.open('GET', 'https://iot-t52.duckdns.org:3002/potholes', true);
      }
     pxhr.onreadystatechange = pxhrCallback;
     pxhr.send();
@@ -285,12 +313,16 @@
     //     //sidebar.setContent(inBounds.join('<br>\n'));
     //     $(".elenco").html(inBounds.join('<br>\n'));
     // });
-    map.on('zoomend', () => {
-         let clusters = []
+    map.on('zoomend moveend', () => {
+          // let clusters = []
+        // var clusters = [];
+        clusters.length = 0;
          map.eachLayer((l) => {
               if( l instanceof L.Marker && map.getBounds().contains(l.getLatLng()) )
                    clusters.push(l)
          })
+        // update cluster markers count on widget info
+        document.getElementById("count_points").textContent=clusters.length;
          // do something with clusters such as cluster[0].spiderfy()
          // console.log(clusters);
 
@@ -306,11 +338,18 @@
                var marker = clusters[i];
                if (bounds.contains(marker.getLatLng()) && marker.feature.properties.info) {
                  // console.log(marker);
-                   inBounds.push(marker.feature.properties.id + ' ' + marker.feature.properties.info[0].value + ' ' + printDateTime(marker.feature.properties.time) + ' <a href="javascript:void(0);" onclick="deletePost(\''+marker.feature.properties.id+'\');"'+'> delete me </a>'  );
+                   inBounds.push(marker.feature.properties.id + ' ' + marker.feature.properties.info[0].value + ' ' + printDateTime(marker.feature.properties.time) + ' - <a href="javascript:void(0);" onclick="clusters['+ (marker.feature.properties.id - 1) +'].fire(\'click\');"> select me </a> - ' + ' <a href="javascript:void(0);" onclick="deletePost(\''+marker.feature.properties.id+'\');"'+'> delete me </a>'  );
                }
                else if (bounds.contains(marker.getLatLng())) {
                  // console.log(marker);
-                 inBounds.push(marker.feature.properties.id + ' <br>');
+                 inBounds.push(marker.feature.properties.id + ' pothole - <a href="javascript:void(0);" onclick="deletePot(\''+marker.feature.properties.id+'\');"'+'> delete pothole </a>' );
+                 marker.bindPopup("Pothole id: " + marker.feature.properties.id + '<br> ');
+                  marker.on('mouseover', function (e) {
+                    this.openPopup();
+                  });
+                  marker.on('mouseout', function (e) {
+                    this.closePopup();
+                  });
                }
            }
        //
@@ -322,11 +361,22 @@
            $(".elenco").html(inBounds.join('<br>\n'));
     })
 
+    function confirmCreatePot(lat,lng) {
+        let confirmCreatePot = confirm("Are you sure to create a new pothole?");
+        if (confirmCreatePot) {
+          createPot(lat,lng);
+          alert("Pot successfully create at lat: " + lat + ' lng: ' + lng + ".");
+        } else {
+          alert("Action canceled");
+        }
+      }
+
 map.on('click', function(e){
   var coord = e.latlng;
   var lat = coord.lat;
   var lng = coord.lng;
   console.log("You clicked the map at latitude: " + lat + " and longitude: " + lng);
+  confirmCreatePot(lat,lng);
   });
       function startup() {
         if (isLocalHost(window.location.href)) {
@@ -354,7 +404,7 @@ map.on('click', function(e){
           map.setZoom(initzoom + 1 );
           map.setZoom(initzoom);
       }
-// map.zoom(in)
+  // map.zoom(in)
   </script>
 <style>
 .sidebar {
@@ -364,11 +414,11 @@ map.on('click', function(e){
   right: 0;
   background-color: #c3c3c3;
   font-family: "Arial", Arial, serif;
-  padding:
+  /* padding:  */
 }
 
 #map {
-  width: 70%;
+  width: 100%;
   height: 500px;
 }
 
@@ -738,8 +788,8 @@ body {
   vertical-align: middle;
   font-size: 20px;
 }
-.td_btn {
-}
+/* .td_btn {
+} */
 .td_btn_a {
   margin-top: 20px;
   margin-left: auto; margin-right: auto; /* centered */
@@ -747,10 +797,10 @@ body {
   font-weight: bolder;
   color: #555;
   border: 2px solid;
-  border-radius: 16px;
-  width: 34px;
-  height: 34px;
-  padding: 10px;
+  border-radius: 44px;
+  width: 52px;
+  height: 52px;
+  padding: 8px;
   cursor: pointer;
   user-select: none;
 }
@@ -1217,73 +1267,130 @@ body {
    //clearTimedPost();
    TD.update({sendData: 0});
  });
+
  </script>
+<div class="container">
+  <div class="row">
+    <div class="col-lg-6 col-md-12">
+      <div id="title_dashboard_local" style="color:white; overflow-y: scroll; height:20px;background-color: #036 ;"><a style="width:100%;display:block;" class="toggle" href="#dashboard_local">Dashboard local</a></div>
+      <div id="dashboard_local" style="color:white; overflow-y: scroll; background-color:#036; display:none;">
+        <!-- <p><b>Dashboard :</b></p> -->
+        <!-- <p><b>Dashboard testuale con dati locali:</b></p> -->
+       "thingy52 name:" <span id="thingyName"></span><br>
+       "thingy52 battery:" <span id="thingyBattery"></span><br>
+       "thingy52 temperature:" <span id="thingyTemp"></span><br>
+       "thingy52 gravity vector:" <span id="thingyGVector"></span><br>
+       "thingy52 humidity:" <span id="thingyHumidity"></span><br>
+       "thingy52 pressure:" <span id="thingyPressure"></span><br>
+       "thingy52 red:" <span id="thingyRed"></span><br>
+       "thingy52 green:" <span id="thingyGreen"></span><br>
+       "thingy52 blue:" <span id="thingyBlue"></span><br>
+       "thingy52 gas:" <span id="thingyGas"></span><br>
+       <!-- "thingy52 color:" <span id="thingyColor"></span><br> -->
+       "thingy52 heading:" <span id="heading"></span><br>
+       "lat:" <span id="lat"></span><br>
+       "lng:" <span id="lng"></span><br>
+       "time:" <span id="time"></span><br>
+       <!-- "heading:" <span id="heading"></span><br> -->
+       "dir:" <span id="dir"></span><br>
+       "info:" <span id="info"></span><br>
+      </div>
+      </div>
+      <div class="col-lg-6 col-md-12">
+        <div id="title_dashboard_ws" style="color:white; overflow-y: scroll; height:20px;background-color: darkgreen ;"><a style="width:100%;display:block;" class="toggle" href="#dashboard_ws">Dashboard websocket</a></div>
+        <div id="dashboard_ws" style="background-color: darkgreen; display:none;">
+        <!-- <p><b>Dashboard testuale con dati via websocket:</b></p> -->
+        <div id="demo" style="background-color:orange;">&nbsp;Trial </div>
+        "thingy52 name:" <span id="wsthingyName"></span><br>
+        "thingy52 battery:" <span id="wsthingyBattery"></span><br>
+        "thingy52 temperature:" <span id="wsthingyTemp"></span><br>
+        "thingy52 gravity vector:" <span id="wsthingyGVector"></span><br>
+        "thingy52 humidity:" <span id="wsthingyHumidity"></span><br>
+        "thingy52 pressure:" <span id="wsthingyPressure"></span><br>
+        "thingy52 red:" <span id="wsthingyRed"></span><br>
+        "thingy52 green:" <span id="wsthingyGreen"></span><br>
+        "thingy52 blue:" <span id="wsthingyBlue"></span><br>
+        "thingy52 gas:" <span id="wsthingyGas"></span><br>
+        <!-- "thingy52 color:" <span id="wsthingyColor"></span><br> -->
+        "thingy52 heading:" <span id="wsheading"></span><br>
+       
+        "thingy52 GyroX:" <span id="wsthingyGyroX"></span><br>
+        "thingy52 GyroY:" <span id="wsthingyGyroY"></span><br>
+        "thingy52 GyroZ:" <span id="wsthingyGyroZ"></span><br>
+        "thingy52 AccX:" <span id="wsthingyAccX"></span><br>
+        "thingy52 AccY:" <span id="wsthingyAccY"></span><br>
+        "thingy52 AccZ:" <span id="wsthingyAccZ"></span><br>
+        "lat:" <span id="wslat"></span><br>
+        "lng:" <span id="wslng"></span><br>
+        "time:" <span id="wstime"></span><br>
+        <!-- "heading:" <span id="wsheading"></span><br> -->
+        "dir:" <span id="wsdir"></span><br>
+        "info:" <span id="wsinfo"></span><br>
+      </div>
+    </div>
+  </div>
+  </div>
 
+<div class="container">
+    <div class="row">
+      <div class="col-lg-6 col-md-12">    
+      <div id="title_dashboard_server" style="color:white; overflow-y: scroll; height:20px;background-color: darkgreen ;"><a style="width:100%;display:block;" class="toggle" href="#button_server">Dashboard server data</a></div>
+      <div id="button_server" style="background-color: darkgreen;display:none;">
+        <!-- <b>Server data via websocket:</b> -->
+        <button id="sendPost">saveData</button>
+        <button id="clearPost">stopData</button>
+        <button id="sendPot">savePot</button>
+        <button id="clearPot">stopPot</button>
+      </div>
+    </div>
+  </div>
+</div>
 
- <p><b>Dashboard :</b></p>
- <div id="tinyDash" class="tinyDashwrapper" style="position:relative; min-height:650px; width:650px; background-color:black;"></div>
- <div id="tinyDashMapWrapper" class="tinyDashMapWrapper" style="height:650px; width:650px; "><div id="Lmap" style="height:450px;"></div></div>
- <p><b>Dashboard testuale con dati locali:</b></p>
- "thingy52 name:" <span id="thingyName"></span><br>
- "thingy52 battery:" <span id="thingyBattery"></span><br>
- "thingy52 temperature:" <span id="thingyTemp"></span><br>
- "thingy52 gravity vector:" <span id="thingyGVector"></span><br>
- "thingy52 humidity:" <span id="thingyHumidity"></span><br>
- "thingy52 pressure:" <span id="thingyPressure"></span><br>
- "thingy52 red:" <span id="thingyRed"></span><br>
- "thingy52 green:" <span id="thingyGreen"></span><br>
- "thingy52 blue:" <span id="thingyBlue"></span><br>
- "thingy52 gas:" <span id="thingyGas"></span><br>
- <!-- "thingy52 color:" <span id="thingyColor"></span><br> -->
- "thingy52 heading:" <span id="heading"></span><br>
- "lat:" <span id="lat"></span><br>
- "lng:" <span id="lng"></span><br>
- "time:" <span id="time"></span><br>
- <!-- "heading:" <span id="heading"></span><br> -->
- "dir:" <span id="dir"></span><br>
- "info:" <span id="info"></span><br>
-
- <p><b>Dashboard testuale con dati via websocket:</b></p>
-
- "thingy52 name:" <span id="wsthingyName"></span><br>
- "thingy52 battery:" <span id="wsthingyBattery"></span><br>
- "thingy52 temperature:" <span id="wsthingyTemp"></span><br>
- "thingy52 gravity vector:" <span id="wsthingyGVector"></span><br>
- "thingy52 humidity:" <span id="wsthingyHumidity"></span><br>
- "thingy52 pressure:" <span id="wsthingyPressure"></span><br>
- "thingy52 red:" <span id="wsthingyRed"></span><br>
- "thingy52 green:" <span id="wsthingyGreen"></span><br>
- "thingy52 blue:" <span id="wsthingyBlue"></span><br>
- "thingy52 gas:" <span id="wsthingyGas"></span><br>
- <!-- "thingy52 color:" <span id="wsthingyColor"></span><br> -->
- "thingy52 heading:" <span id="wsheading"></span><br>
-
- "thingy52 GyroX:" <span id="wsthingyGyroX"></span><br>
- "thingy52 GyroY:" <span id="wsthingyGyroY"></span><br>
- "thingy52 GyroZ:" <span id="wsthingyGyroZ"></span><br>
- "thingy52 AccX:" <span id="wsthingyAccX"></span><br>
- "thingy52 AccY:" <span id="wsthingyAccY"></span><br>
- "thingy52 AccZ:" <span id="wsthingyAccZ"></span><br>
- "lat:" <span id="wslat"></span><br>
- "lng:" <span id="wslng"></span><br>
- "time:" <span id="wstime"></span><br>
- <!-- "heading:" <span id="wsheading"></span><br> -->
- "dir:" <span id="wsdir"></span><br>
- "info:" <span id="wsinfo"></span><br>
-
- <p><b>Server data via websocket:</b></p>
- <button id="sendPost">saveData</button>
- <button id="clearPost">stopData</button>
- <button id="sendPot">savePot</button>
- <button id="clearPot">stopPot</button>
- <p><b>controllo:</b></p>
- <p><i>serve un risultato come questo:</i><br>
-   {"lng":18.3231221,"lat":39.9732783,"time":1672977529,"dir":61.8,"heading":62,"info":[{"key":"name", "value":"CAR1"},{"key":"temp", "value":20}]}
- </p>
- <p><i>ho ricevuto dal websocket:</i></p>
- <p id="demo">
- </p>
+  
+ 
 <script>
+  var show = function (elem) {
+	elem.style.display = 'block';
+};
+
+var hide = function (elem) {
+	elem.style.display = 'none';
+};
+
+var toggle = function (elem) {
+
+	// If the element is visible, hide it
+	if (window.getComputedStyle(elem).display === 'block') {
+		hide(elem);
+		return;
+	}
+
+	// Otherwise, show it
+	show(elem);
+
+};
+
+// Listen for click events
+document.addEventListener('click', function (event) {
+
+	// Make sure clicked element is our toggle
+	if (!event.target.classList.contains('toggle')) return;
+
+	// Prevent default link behavior
+	event.preventDefault();
+
+	// Get the content
+	var content = document.querySelector(event.target.hash);
+	if (!content) return;
+
+	// Toggle the content
+	toggle(content);
+
+}, false);
+
+  // document.querySelector('#title_dashboard_local').addEventListener('click', function() { document.querySelector('#dashboard_local').style.visibility = 'hidden'; });
+  // document.querySelector('#title_dashboard_ws').addEventListener('click', function() { document.querySelector('#dashboard_ws').style.visibility = 'hidden'; });
+  // document.querySelector('#title_dashboard_server').addEventListener('click', function() { document.querySelector('#dashboard_server').style.visibility = 'hidden'; });
 // mi serve questo
 //{"lng":18.3231221,"lat":39.9732783,"time":1672977529,"dir":61.8,"heading":62,"info":[{"key":"name", "value":"CAR1"},{"key":"temp", "value":20}]},
 
@@ -1540,11 +1647,13 @@ function sendPot() {
 }
 
 function deleteAllPots() {
-  let clusters = []
+  
+  clusters.length= 0;
   map.eachLayer((l) => {
        if( l instanceof L.Marker && map.getBounds().contains(l.getLatLng()) && l.feature.properties.pothole )
             clusters.push(l)
   })
+  
   // do something with clusters such as cluster[0].spiderfy()
   // console.log(clusters);
   for (var i = 0, len = clusters.length; i < len; i++) {
@@ -1557,7 +1666,7 @@ function deleteAllPots() {
     }
 
 function deleteAllPoints() {
-  let clusters = []
+  clusters.length = 0;
   map.eachLayer((l) => {
        if( l instanceof L.Marker && map.getBounds().contains(l.getLatLng()) && l.feature.properties.info )
             clusters.push(l)
@@ -1571,14 +1680,36 @@ function deleteAllPoints() {
           deletePoint(marker.feature.properties.id);
         }
       }
+      setTimeout(function(){ window.location.reload(); },500);
+    }
+
+    function createPot(lat,lng) {
+      if (isLocalHost(window.location.href)) {
+        var RestDBUrl = 'http://localhost:3002/potholes/';
+      } else {
+        //const RestApiUrl = '';
+        var RestDBUrl = 'https://iot-t52.duckdns.org:3002/potholes/';
+      }
+
+      fetch(RestDBUrl, {
+      method: 'POST',
+      headers: {
+      'Accept': 'application/json',
+      'Content-Type': 'application/json',
+      'Authorization': 'Basic '+btoa('uni:salento')
+      },
+      body: JSON.stringify({ "lat": lat, "lng": lng, "pothole": "1" }) })
+      .then(response => response)
+      .then(response => console.log(JSON.stringify(response)))
+    // fine creatPot
     }
 
     function deletePot(id) {
       if (isLocalHost(window.location.href)) {
-        var RestDBUrl = 'http://localhost:3000/potholes/' +id;
+        var RestDBUrl = 'http://localhost:3002/potholes/' +id;
       } else {
         //const RestApiUrl = '';
-        var RestDBUrl = 'https://iot-t52.duckdns.org/iot/proxy/proxy.php?url=http://localhost:3000/points/'+id+'&send_session=1&send_cookies=1&mode=native';
+        var RestDBUrl = 'https://iot-t52.duckdns.org:3002/potholes/' +id;
       }
 
       fetch(RestDBUrl, {
@@ -1610,17 +1741,17 @@ function deleteAllPoints() {
       }
       })
       .then(response => response)
-      .then(response => console.log(JSON.stringify(response)))
+      .then(response => { console.log(JSON.stringify(response)); setTimeout(function(){ window.location.reload(); },500); })
     } // fine searchPot
 
 
 
 function deletePoint(id) {
   if (isLocalHost(window.location.href)) {
-    var RestDBUrl = 'http://localhost:3000/points/' +id;
+    var RestDBUrl = 'http://localhost:3002/points/' +id;
   } else {
     //const RestApiUrl = '';
-    var RestDBUrl = 'https://iot-t52.duckdns.org/iot/proxy/proxy.php?url=http://localhost:3000/points/'+id+'&send_session=1&send_cookies=1&mode=native';
+    var RestDBUrl = 'https://iot-t52.duckdns.org:3002/points/' + id;
   }
 
   fetch(RestDBUrl, {
@@ -1642,10 +1773,10 @@ function sendPost() {
     var RestApiUrl = 'https://iot-t52.duckdns.org:3002/thingy52';
   }
   if (isLocalHost(window.location.href)) {
-    var RestDBUrl = 'http://localhost:3000/points';
+    var RestDBUrl = 'http://localhost:3002/points';
   } else {
     //const RestApiUrl = '';
-    var RestDBUrl = 'https://iot-t52.duckdns.org/iot/proxy/proxy.php?url=http://localhost:3000/points&send_session=1&send_cookies=1&mode=native';
+    var RestDBUrl = 'https://iot-t52.duckdns.org:3002/points';
   }
   var thingyName = document.getElementById("thingyName");
   var thingyBattery = document.getElementById("thingyBattery");

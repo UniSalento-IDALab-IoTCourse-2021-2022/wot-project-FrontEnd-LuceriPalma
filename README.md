@@ -17,29 +17,39 @@ The complete project is composed by:
 - [@cpalma-usal](https://www.github.com/cpalma-usal)
 
 
+
+
 ## Installation and instruction
 
 In the development environment, a local machine was utilized, with the following needed services:
-- A web server (http-server, live-server, ‘express’ in node app, or apache web server) working on port 8080 on localhost. This project mainly uses live-server, a little development server with live reload capability.
-- A database (JSON Server, MongoDB, PostgreSQL), working on port 3000 on localhost. This project mainly uses json-server, a little development database (DB) server, with live reload capability to create a quick REST API for a DB stored on file in .json format (db.json file).
-- A node application serverApp.js with extra functionalities such as web socket, routing control, access control, and more. ServerApp.js works on port 3002 on localhost.
+- A web server (http-server, live-server, ‘express’ in node app, or apache web server) working on localhost. An an express web server is included in the node application serverApp.js.
+- A database (JSON Server, MongoDB, PostgreSQL), working on localhost. This project mainly uses json-server, a little development database (DB) server, with live reload capability to create a quick REST API for a DB stored on file in .json format (db.json file). The json-server is included in the node application serverApp.js
+- A node application serverApp.js with extra functionalities such as web socket, routing control, access control, launch the trained model and more. ServerApp.js works on port 3002 on localhost.
 
+In the production environment more configuration and settings are required:
+- a private certificate for secure (https) connection, 
+- a domain (or a dynamic domain with duckdns.org or similar services)
 
 This repository contains the frontend : html, css, js files in order to run the web application.
 
 
 ### Setting and launch of the web-server
 
-Assuming node and npm installed.
+Assuming that the backend is installed it will be enough to copy the folder frontend as public subfolder of the node folder of the backend.
+
+Assuming the backend part is installed :
 
 ```bash
-  npm i -g http-server
-  http-server
+  cd backend
+  cd node
+  ln -s public /path/to/frontend
 ```
 
-The server will be listening on :
-  http://localhost:8080
+The node serverApp will be listening on :
+  http://localhost:3002
 
+In details, the web server (public folder) will be available on :
+  http://localhost:3002/iot/
 
 
 ## Acknowledgements
